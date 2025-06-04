@@ -101,8 +101,8 @@ while ($data = mysqli_fetch_assoc($req)) {
                                 <form  method='POST'>
                                     <button type='submit' name='deconnection' style=\"font-family: 'DotGothic16'; background-color: #212121; border:none; color:white; font-size: 18px;\">Deconnexion</button>
                                 </form>
-                                <a href='#'>assistance</a>
-                                <a href='#'>devenir_admin</a>
+                                <a href='https://raspberrypi2:8081'>Base de données</a>
+                                <a href='http://raspberrypi2:8080'>Serveur LORAWAN</a>
                             </ul>
                             ";
                             
