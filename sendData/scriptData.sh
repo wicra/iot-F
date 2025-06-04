@@ -7,7 +7,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # CONFIGURATION MODIFIABLE
-DB_HOST="localhost"
+DB_HOST="127.0.0.1"
 DB_USER="root"
 DB_PASS="root"
 DB_NAME="iot_db"
@@ -16,7 +16,8 @@ TABLE_NAME="mesure"
 BROKER="localhost"
 PORT=1883
 DEVICE_EUI="0018B2100000D76D"
-TOPIC="application/+/device/+/event/up"
+# On écoute uniquement le topic du device voulu
+TOPIC="application/+/device/${DEVICE_EUI,,}/event/up"
 
 # AFFICHAGE DU BANNER
 show_banner() {
@@ -37,6 +38,7 @@ log_message() {
     "INFO") color=$BLUE ;;
     "SUCCESS") color=$GREEN ;;
     "ERROR") color=$RED ;;
+    "WARN") color=$RED ;;
   esac
 
   echo -e "${color}[$timestamp] [$level] $message${NC}"
@@ -52,8 +54,21 @@ insert_into_db() {
     log_message "SUCCESS" "→ Données insérées : Temp=${temperature}°C, Hum=${humidite}%"
   else
     log_message "ERROR" "Erreur insertion DB (voir /tmp/mysql_error.log)"
+    log_message "ERROR" "$(cat /tmp/mysql_error.log)"
   fi
 }
+
+# Vérifie si mysql est installé, sinon l'installe
+if ! command -v mysql >/dev/null 2>&1; then
+  echo -e "${BLUE}[INFO] Installation du client MySQL...${NC}"
+  sudo apt-get update
+  sudo apt-get install -y default-mysql-client
+  if ! command -v mysql >/dev/null 2>&1; then
+    echo -e "${RED}[ERROR] L'installation du client MySQL a échoué. Arrêt du script.${NC}"
+    exit 1
+  fi
+  echo -e "${GREEN}[INFO] Client MySQL installé avec succès.${NC}"
+fi
 
 # SCRIPT PRINCIPAL
 show_banner
@@ -62,30 +77,60 @@ log_message "INFO" "Appuyez sur Ctrl+C pour quitter"
 
 mosquitto_sub -h "$BROKER" -p "$PORT" -t "$TOPIC" -v | \
 while read -r line; do
+  log_message "INFO" "Message MQTT reçu : $line"
+
+  # Extraction du JSON (après le topic)
   json=$(echo "$line" | cut -d' ' -f2-)
-
-  devEui=$(echo "$json" | jq -r '.deviceInfo.devEui')
-  [[ "$devEui" != "$DEVICE_EUI" ]] && continue
-
-  b64=$(echo "$json" | jq -r '.data')
-  [[ -z "$b64" || "$b64" == "null" ]] && continue
-
-  read -r t_lsb t_msb h_lsb h_msb < <(echo "$b64" | base64 -d | od -An -t u1)
-
-  raw_temp=$(( (t_lsb) | (t_msb << 8) ))
-  raw_hum=$(( (h_lsb) | (h_msb << 8) ))
-
-  if (( raw_temp >= 32768 )); then
-    signed_temp=$(( raw_temp - 65536 ))
-  else
-    signed_temp=$raw_temp
+  if [[ -z "$json" ]]; then
+    log_message "WARN" "Aucun JSON détecté dans le message, on ignore."
+    continue
   fi
 
-  temperature=$(awk "BEGIN{printf \"%.2f\", $signed_temp/100}")
-  humidite=$(awk "BEGIN{printf \"%.2f\", $raw_hum/10}")
+  # Vérification du devEui dans le JSON (sécurité supplémentaire)
+  devEui=$(echo "$json" | jq -r '.deviceInfo.devEui')
+  if [[ "${devEui,,}" != "${DEVICE_EUI,,}" ]]; then
+    log_message "INFO" "devEui non concerné ($devEui), on ignore."
+    continue
+  fi
+  log_message "INFO" "devEui validé : $devEui"
 
-  log_message "INFO" "→ Température: $temperature °C"
-  log_message "INFO" "→ Humidité: $humidite %"
+  # Extraction du champ data
+  b64=$(echo "$json" | jq -r '.data')
+  if [[ -z "$b64" || "$b64" == "null" ]]; then
+    log_message "WARN" "Champ 'data' absent ou null, on ignore."
+    continue
+  fi
+
+  # Vérifier la longueur de la chaîne base64 (8 caractères attendus)
+  char_count=${#b64}
+  if [[ "$char_count" -ne 8 ]]; then
+    log_message "WARN" "Payload data n'a pas 8 caractères base64 ($char_count caractères), on ignore."
+    continue
+  fi
+  log_message "INFO" "Payload data valide ($char_count caractères base64)"
+
+  # Décodage base64 en hexadécimal
+  hex=$(echo "$b64" | base64 -d | xxd -p | tr -d '\n')
+  log_message "INFO" "Payload hexadécimal : $hex"
+
+  # Vérifier que la trame fait au moins 5 octets (10 caractères hex)
+  if [[ ${#hex} -lt 10 ]]; then
+    log_message "WARN" "Trame trop courte (${#hex}/10 caractères hex), on ignore."
+    continue
+  fi
+
+  # Extraction des champs selon la structure
+  temp_hex="${hex:4:4}"   # octets 3-4
+  hum_hex="${hex:8:2}"    # octet 5
+
+  temp_dec=$((16#$temp_hex))
+  hum_dec=$((16#$hum_hex))
+
+  temperature=$(awk "BEGIN{printf \"%.1f\", $temp_dec/10}")
+  humidite=$hum_dec
+
+  log_message "INFO" "→ Température décodée: $temperature °C"
+  log_message "INFO" "→ Humidité décodée: $humidite %"
 
   insert_into_db "$temperature" "$humidite"
   echo -e "${BLUE}-----------------------------------${NC}"
