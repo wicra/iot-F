@@ -26,7 +26,7 @@
 
                 <div class="titre">
                     <ul>
-                        <li><h2>IOT PROJET SERRE LORAWAN</h2></li>
+                        <li><h2>IOT PROJET BAIES INFO LORAWAN</h2></li>
                     </ul>
                 </div>
             </div>        
@@ -36,7 +36,7 @@
         <main>
             <div class="acceuill">
                 <h1>Bienvenue sur l'interface d'affichage </h1>
-                <h2>Pour avoir accèes a l'environnement du serre veiller vous connecter </h2>
+                <h2>Pour avoir accèes a l'environnement de surveillance veiller vous connecter </h2>
             </div>
 
             <div class="bouton">
