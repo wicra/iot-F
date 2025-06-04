@@ -6,7 +6,7 @@ $username = "freedb_eleve";
 $password = "FGv86P&Qg#UJ&r$";  
 */
 
-$servername = "localhost"; 
+$servername = "127.0.0.1"; 
 $port = '3306' ;
 $dbname = "iot_db";  
 $username = "root"; 
