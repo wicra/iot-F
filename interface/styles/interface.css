@@ -7,10 +7,12 @@
 
 /* BODY */
 body {
+  background: linear-gradient(rgba(24, 28, 31, 0.85), rgba(24, 28, 31, 0.85)),
+    url("../img/serre.jpg") no-repeat center center fixed;
+  background-size: cover;
   font-family: "DotGothic16", sans-serif;
-  background: linear-gradient(135deg, #232526 0%, #414345 100%);
-  min-height: 100vh;
   color: #fff;
+  min-height: 100vh;
   overflow-x: hidden;
 }
 

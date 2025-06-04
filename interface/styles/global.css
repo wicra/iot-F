@@ -7,7 +7,9 @@
 
 body {
   font-family: "DotGothic16", "Segoe UI", Arial, sans-serif;
-  background: linear-gradient(135deg, #1e215d 0%, #3a1c71 100%);
+  background: linear-gradient(rgba(24, 28, 31, 0.85), rgba(24, 28, 31, 0.85)),
+    url("../../assets/img/thomas-verbruggen-cVYLIzF6Gh0-unsplash.jpg") no-repeat center center fixed;
+  background-size: cover;
   min-height: 100vh;
   color: #f8fafd;
   letter-spacing: 0.03em;
